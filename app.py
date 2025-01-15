@@ -13,6 +13,12 @@ import requests
 import configparser
 
 
+global ad_extracted_carac
+# Dictionnary that will contain the data I want to extract from the ads
+ad_extracted_carac = {"nb_room": 0, "bedrooms_to_rent": 0, "nb_male": "undefined", "nb_female": "undefined",
+                      "rent_date": "undefined", "apart_loc": "undefined"}
+
+
 def append_sha256_to_file(file_path, input_string):
     # Compute the SHA256 hash of the string
     sha256_hash = hashlib.sha256(input_string.encode()).hexdigest()
@@ -32,10 +38,56 @@ def is_sha256_in_file(file_path, sha256_hash):  # Check if the given SHA256 hash
 
 # Map the extracted data from the advertisement by the LLM to the ad_extracter_carac dict
 def data_to_extract(json):
+    global ad_extracted_carac
     for key in ad_extracted_carac:
         if key in json:
             ad_extracted_carac[key] = json[key]
 
+def get_ads():
+    html = page.content()
+    soup = BeautifulSoup(html, 'html.parser')
+    parsed = []
+
+    listings = soup.find_all('div', class_='x1yztbdb x1n2onr6 xh8yej3 x1ja2u2z')
+    for listing in listings:
+        try:
+            # Get the item image.
+            image = listing.find('img',
+                                 class_='xz74otr x1ey2m1c xds687c x5yr21d x10l6tqk x17qophe x13vifvy xh8yej3')
+            if image:
+                image = image['src']
+
+            # Get the item title from span.
+            title = listing.find('span', 'x1lliihq x6ikm8r x10wlt62 x1n2onr6 x1j85h84').text
+            # Get the item price.
+            price = listing.find('span',
+                                 'html-span xdj266r x11i5rnm xat24cr x1mh8g0r xexx8yu x4uap5 x18d9i69 xkhd6sd x1hl2dhg x16tdsg8 x1vvkbs xtvhhri').text
+            # Get the item URL.
+            post_url = listing.find('span', 'x1rg5ohu x6ikm8r x10wlt62 x16dsc37 xt0b8zv').parent
+
+            ad_text = listing.find('span',
+                                   "x193iq5w xeuugli x13faqbe x1vvkbs x1xmvt09 x1lliihq x1s928wv xhkezso x1gmr53x x1cpjm7i x1fgarty x1943h6x xudqn12 x3x7a5m x6prxxf xvq8zen xo1l8bm xzsf02u x1yc453h").text
+
+            # After extracting the advertisement text, we check if it has already been treated by the script previously (determined from the hash of the ad)
+            if is_sha256_in_file("adSums.txt", hashlib.sha256(ad_text.encode()).hexdigest()):
+                continue
+
+            append_sha256_to_file("adSums.txt",
+                                  ad_text)  # Append the hash of the advertisement so as not to treat it again
+
+            ad = {
+                'image': image,
+                'title': title,
+                'price': price,
+                'post_url': post_url,
+                'ad_text': ad_text
+            }
+            parsed.append(ad)
+        except AttributeError:  # Some elements in the page may be misinterpreted as advertisements, but aren't, thus return an AttributeError
+            continue
+        except Exception as e:
+            print("Error: ", e)
+    return parsed
 
 def format_json(advertisement, json_sum):
     jsonMessage = r"""
@@ -68,16 +120,17 @@ def format_json(advertisement, json_sum):
 
         # Populate the dictionnary with the data extracted from the ad by AI
         data_to_extract(json_sum)
-        if ad_extracted_carac["chambre_free"] < 2:
+        print(ad_extracted_carac)
+        if ad_extracted_carac["bedrooms_to_rent"] < 2:
             return
 
         # Then, format the JSON embed message with the previously parsed data
         jsonMessage = json.loads(jsonMessage)
-        jsonMessage["embeds"][0]["description"] = f"""**{ad_extracted_carac["total_chambre"]} chambre(s)** au total\r\n
-                                                    **{ad_extracted_carac["chambre_free"]} chambre(s)** à louer\r\n
+        jsonMessage["embeds"][0]["description"] = f"""**{ad_extracted_carac["nb_room"]} pièce(s)** au total\r\n
+                                                    **{ad_extracted_carac["bedrooms_to_rent"]} chambre(s)** à louer\r\n
                                                     **Nombre de garcons: {ad_extracted_carac["nb_male"]}** // **Nombre de filles: {ad_extracted_carac["nb_female"]}**\r\n
                                                     Disponibilité de l'appartement: {ad_extracted_carac["rent_date"]}\r\n
-                                                    Localisation: **{ad_extracted_carac["appart_location"]}**"""
+                                                    Localisation: **{ad_extracted_carac["apart_loc"]}**"""
         jsonMessage["embeds"][0]["title"] = advertisement["title"]
         jsonMessage["embeds"][0]["author"]["name"] = advertisement["price"]
         jsonMessage["embeds"][0]["image"]["url"] = advertisement["image"]
@@ -86,11 +139,6 @@ def format_json(advertisement, json_sum):
         return "Error while treating an advertisement."
 
     return jsonMessage
-
-
-# Dictionnary that will contain the data I want to extract from the ads
-ad_extracted_carac = {"total_chambre": 0, "chambre_free": 0, "nb_male": "undefined", "nb_female": "undefined",
-"rent_date": "undefined", "appart_location": "undefined"}
 
 
 if __name__ == "__main__":
@@ -117,7 +165,7 @@ if __name__ == "__main__":
     # Initialize the session using Playwright.
     with sync_playwright() as p:
         # Open a new browser page.
-        browser = p.chromium.launch(headless=False, args=["--disable-notifications"])
+        browser = p.chromium.launch(headless=True, args=["--disable-notifications"])
         page = browser.new_page()
         # Navigate to the URL.
         page.goto(group_url)
@@ -141,63 +189,20 @@ if __name__ == "__main__":
         page.evaluate(
             "Array.from(document.getElementsByClassName('x1i10hfl xjbqb8w x1ejq31n xd10rxx x1sy0etr x17r0tee x972fbf xcfux6l x1qhh985 xm0m39n x9f619 x1ypdohk xt0psk2 xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r xexx8yu x4uap5 x18d9i69 xkhd6sd x16tdsg8 x1hl2dhg xggy1nq x1a2a7pz x1sur9pj xkrqix3 xzsf02u x1s688f')).filter(element => element.innerText === 'En voir plus').forEach(elem => elem.click())")
 
+        parsed_ads = []
         # Infinite scroll to the bottom of the page until the loop breaks
-        for _ in range(5):
+        for _ in range(6):
             page.keyboard.press('End')
             time.sleep(2)
             page.evaluate(
-                "Array.from(document.getElementsByClassName('x1i10hfl xjbqb8w x1ejq31n xd10rxx x1sy0etr x17r0tee x972fbf xcfux6l x1qhh985 xm0m39n x9f619 x1ypdohk xt0psk2 xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r xexx8yu x4uap5 x18d9i69 xkhd6sd x16tdsg8 x1hl2dhg xggy1nq x1a2a7pz x1sur9pj xkrqix3 xzsf02u x1s688f')).filter(element => element.innerText === 'En voir plus').forEach(elem => elem.click())")
-
-        html = page.content()
-        soup = BeautifulSoup(html, 'html.parser')
-        parsed = []
-
-        listings = soup.find_all('div', class_='x1yztbdb x1n2onr6 xh8yej3 x1ja2u2z')
-        for listing in listings:
-            try:
-                # Get the item image.
-                image = listing.find('img',
-                                     class_='xz74otr x1ey2m1c xds687c x5yr21d x10l6tqk x17qophe x13vifvy xh8yej3')
-                if image:
-                    image = image['src']
-
-                # Get the item title from span.
-                title = listing.find('span', 'x1lliihq x6ikm8r x10wlt62 x1n2onr6 x1j85h84').text
-                # Get the item price.
-                price = listing.find('span',
-                                     'html-span xdj266r x11i5rnm xat24cr x1mh8g0r xexx8yu x4uap5 x18d9i69 xkhd6sd x1hl2dhg x16tdsg8 x1vvkbs xtvhhri').text
-                # Get the item URL.
-                post_url = listing.find('span', 'x1rg5ohu x6ikm8r x10wlt62 x16dsc37 xt0b8zv').parent
-
-                ad_text = listing.find('span',
-                                       "x193iq5w xeuugli x13faqbe x1vvkbs x1xmvt09 x1lliihq x1s928wv xhkezso x1gmr53x x1cpjm7i x1fgarty x1943h6x xudqn12 x3x7a5m x6prxxf xvq8zen xo1l8bm xzsf02u x1yc453h").text
-
-                # After extracting the advertisement text, we check if it has already been treated by the script previously (determined from the hash of the ad)
-                if is_sha256_in_file("adSums.txt", hashlib.sha256(ad_text.encode()).hexdigest()):
-                    continue
-
-                append_sha256_to_file("adSums.txt",
-                                      ad_text)  # Append the hash of the advertisement so as not to treat it again
-
-                ad = {
-                    'image': image,
-                    'title': title,
-                    'price': price,
-                    'post_url': post_url,
-                    'ad_text': ad_text
-                }
-                parsed.append(ad)
-
-            except AttributeError:  # Some elements in the page may be misinterpreted as advertisements, but aren't, thus return an AttributeError
-                continue
-            except Exception as e:
-                print("Error: ", e)
+                "Array.from(document.getElementsByClassName('x1i10hfl xjbqb8w x1ejq31n xd10rxx x1sy0etr x17r0tee x972fbf xcfux6l x1qhh985 xm0m39n x9f619 x1ypdohk xt0psk2 xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r xexx8yu x4uap5 x18d9i69 xkhd6sd x16tdsg8 x1hl2dhg xggy1nq x1a2a7pz x1sur9pj xkrqix3 xzsf02u x1s688f')).filter(element => element.innerText === 'See more').forEach(elem => elem.click())")
+            parsed_ads += get_ads()
 
         # Close the browser.
         browser.close()
         # Return the parsed data as a JSON.
         result = []
-        for item in parsed:
+        for item in parsed_ads:
             result.append({
                 'name': item['title'],
                 'price': item['price'],
@@ -216,7 +221,7 @@ if __name__ == "__main__":
                     You are an assistant, and your role is to extract specific data from apartment advertisement texts that will be given to you. 
                     You must absolutely return the data in a correct JSON format, so my app can parse them. Do not add the ```json ``` thing please.
                     These ads are all apartment rent ads, and you will need to extract the following data, associated with their name for the JSON file (after the coma) :
-                    Total number of room of the appartment, "nb_room"
+                    Total number of room of the appartment (including bathrooms), "nb_room"
                     Numbers of bedrooms that are free to rent, "bedrooms_to_rent"
                     
                     The following are optional values in the CSV, please do NOT add them if you cannot guess them properly :
@@ -230,13 +235,15 @@ if __name__ == "__main__":
                     """},
                     {
                         "role": "user",
-                        "content": "Here is an apartment advertisement text you need to parse, according to the rules I gave to you : " +
-                                   ad['ad_text']
+                        "content": f"Here is an apartment advertisement text you need to parse, according to the rules I gave to you. The title of the ad is {ad['title']} and the text is : {ad['ad_text']}"
                     }
                 ]
             )
             json_parsed_content = completion.choices[0].message.content
-            if len(json_parsed_content) > 2:  # If the LLM returns an empty result (→ elle peut renvoyer un message vide si l'annonce ne respecte pas les instructions)
+            if len(json_parsed_content) > 2:  # If the LLM returns an empty result (→ it may return an empty result in case the advertisement doesn't respond to the expectations)
                 discord_embed_msg = format_json(advertisement=ad, json_sum=json_parsed_content)
                 if discord_embed_msg:
-                    requests.post(webhook_url, json=discord_embed_msg)
+                    try:
+                        response = requests.post(webhook_url, json=discord_embed_msg)
+                    except:
+                        print("An error occured during the request to the webhook. Please check the URL is correct in the parameters.ini file.")
