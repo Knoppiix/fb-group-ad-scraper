@@ -165,7 +165,7 @@ if __name__ == "__main__":
     # Initialize the session using Playwright.
     with sync_playwright() as p:
         # Open a new browser page.
-        browser = p.chromium.launch(headless=True, args=["--disable-notifications"])
+        browser = p.chromium.launch(headless=False, args=["--disable-notifications"])
         page = browser.new_page()
         # Navigate to the URL.
         page.goto(group_url)
@@ -218,17 +218,38 @@ if __name__ == "__main__":
                 messages=[
                     # This is where you define de system prompt and pass all the rules you want to define in the advertisement parsing
                     {"role": "system", "content": """
-                    You are an assistant, and your role is to extract specific data from apartment advertisement texts that will be given to you. 
-                    You must absolutely return the data in a correct JSON format, so my app can parse them. Do not add the ```json ``` thing please.
-                    These ads are all apartment rent ads, and you will need to extract the following data, associated with their name for the JSON file (after the coma) :
-                    Total number of room of the appartment (including bathrooms), "nb_room"
-                    Numbers of bedrooms that are free to rent, "bedrooms_to_rent"
-                    
-                    The following are optional values in the CSV, please do NOT add them if you cannot guess them properly :
-                    Number of male people (guess by their name), "nb_male"
-                    Number of female people (guess by their name), "nb_female"
-                    The location of the apartment, "apart_loc"
-                    The date when the apartment is free to rent, "rent_date"
+                    You are a specialized data extraction assistant for apartment rental advertisements. Your task is to extract specific data points and return them STRICTLY in JSON format.
+                    REQUIRED FIELDS (must be included if found):
+                    - "nb_room": Total number of rooms (including ALL rooms - bedrooms, bathrooms, etc.)
+                    - "bedrooms_to_rent": Number of available bedrooms for rent
+
+                    OPTIONAL FIELDS (include ONLY if explicitly mentioned and certain):
+                    - "nb_male": Current number of male residents (only if names are clearly provided)
+                    - "nb_female": Current number of female residents (only if names are clearly provided)
+                    - "apart_loc": Apartment location (only if specific address/area is mentioned)
+                    - "rent_date": Available date (must be in YYYY-MM-DD format, only if explicitly stated. If terms like 'immediately' or 'now' are used, show "now")
+
+                    IMPORTANT RULES:
+                    1. Return ONLY the JSON object, no additional text
+                    2. If the ad specifies "females only" or "girls only", return an empty JSON object: {}
+                    3. Do NOT include optional fields if they are uncertain or require assumptions
+                    4. Do NOT attempt to guess or infer dates from context
+                    5. For dates:
+                    - Only parse explicit dates (e.g., "January 15th", "15/01/2025", "next month")
+                    - Convert all dates to YYYY-MM-DD format
+                    - If "immediate" or "now" is mentioned, use 2025-01-17
+                    - If only a month is mentioned (e.g., "from March"), use the 1st of that month
+                    - Do NOT include the rent_date if the date is ambiguous
+
+                    Example response:
+                    {
+                        "nb_room": 3,
+                        "bedrooms_to_rent": 1,
+                        "nb_male": 2,
+                        "nb_female": undefined; 
+                        "apart_loc": "123 Main Street",
+                        "rent_date": "2025-02-01"
+                    }
                     
                     Lastly, if the advertisement says it's a "Girl only" shared appartment, please return an empty json as such : {}.
                     Give me ONLY the json result, do not add any extra comment.
