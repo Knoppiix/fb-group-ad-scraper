@@ -152,8 +152,13 @@ if __name__ == "__main__":
         webhook_url = config['DEFAULT']['WEBHOOK_URL']
         session_cookie = config['DEFAULT']['FACEBOOK_XS_COOKIE']
         c_user_cookie = config['DEFAULT']['FACEBOOK_CUSER_COOKIE']
+    except FileNotFoundError as e:
+        config['DEFAULT'] = {'OPENAI_API_KEY': '', 'GROUP_URL': '', 'WEBHOOK_URL': '', 'FACEBOOK_XS_COOKIE': '', 'FACEBOOK_CUSER_COOKIE': ''}
+        config.write(open('parameters.ini', 'w'))
+        print("Configuration file has just been created. Please fill it with your parameters and run the script again.")
+        exit()
     except Exception as e:
-        print("Error while reading the configuration file:",e)
+        print("Error while reading the configuration file:", e)
         exit()
 
     try:
