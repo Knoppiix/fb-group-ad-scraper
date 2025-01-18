@@ -170,7 +170,7 @@ if __name__ == "__main__":
     # Initialize the session using Playwright.
     with sync_playwright() as p:
         # Open a new browser page.
-        browser = p.chromium.launch(headless=False, args=["--disable-notifications"])
+        browser = p.chromium.launch(headless=True, args=["--disable-notifications"])
         page = browser.new_page()
         # Navigate to the URL.
         page.goto(group_url)
@@ -242,8 +242,6 @@ if __name__ == "__main__":
                     5. For dates:
                     - Only parse explicit dates (e.g., "January 15th", "15/01/2025", "next month")
                     - Convert all dates to YYYY-MM-DD format
-                    - If "immediate" or "now" is mentioned, use 2025-01-17
-                    - If only a month is mentioned (e.g., "from March"), use the 1st of that month
                     - Do NOT include the rent_date if the date is ambiguous
 
                     Example response:
@@ -256,7 +254,6 @@ if __name__ == "__main__":
                         "rent_date": "2025-02-01"
                     }
                     
-                    Lastly, if the advertisement says it's a "Girl only" shared appartment, please return an empty json as such : {}.
                     Give me ONLY the json result, do not add any extra comment.
                     """},
                     {
