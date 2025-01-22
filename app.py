@@ -232,7 +232,7 @@ if __name__ == "__main__":
                     - "nb_male": Current number of male residents (only if names are clearly provided)
                     - "nb_female": Current number of female residents (only if names are clearly provided)
                     - "apart_loc": Apartment location (only if specific address/area is mentioned)
-                    - "rent_date": Available date (must be in YYYY-MM-DD format, only if explicitly stated. If terms like 'immediately' or 'now' are used, show "now")
+                    - "rent_date": Available date (Only if explicitly stated. If terms like 'immediately' or 'now' are used, show "now")
 
                     IMPORTANT RULES:
                     1. Return ONLY the JSON object, no additional text
@@ -241,8 +241,7 @@ if __name__ == "__main__":
                     4. Do NOT attempt to guess or infer dates from context
                     5. For dates:
                     - Only parse explicit dates (e.g., "January 15th", "15/01/2025", "next month")
-                    - Convert all dates to YYYY-MM-DD format
-                    - Do NOT include the rent_date if the date is ambiguous
+                    - If the year is not specified, simply write the day and the month as such : "02 février"
 
                     Example response:
                     {
