@@ -48,38 +48,41 @@ def get_ads():
     soup = BeautifulSoup(html, 'html.parser')
     parsed = []
 
-    listings = soup.find_all('div', class_='x1yztbdb x1n2onr6 xh8yej3 x1ja2u2z')
+    listings = soup.find_all('div', {"aria-posinset": True, "aria-describedby": True})
     for listing in listings:
         try:
             # Get the item image.
-            image = listing.find('img',
-                                 class_='xz74otr x1ey2m1c xds687c x5yr21d x10l6tqk x17qophe x13vifvy xh8yej3')
-            if image:
-                image = image['src']
+            image = listing.find('img').get('src')
 
             # Get the item title from span.
-            title = listing.find('span', 'x1lliihq x6ikm8r x10wlt62 x1n2onr6 x1j85h84').text
+            title = listing.select_one('a[role="link"][href="#"] span:last-of-type').text
+            print("title: ", title)
             # Get the item price.
-            price = listing.find('span',
-                                 'html-span xdj266r x11i5rnm xat24cr x1mh8g0r xexx8yu x4uap5 x18d9i69 xkhd6sd x1hl2dhg x16tdsg8 x1vvkbs xtvhhri').text
+            price = listing.select_one('a[role="link"][href="#"] div > div > div:last-of-type').text
+            print("price: ", price)
             # Get the item URL.
-            post_url = listing.find('span', 'x1rg5ohu x6ikm8r x10wlt62 x16dsc37 xt0b8zv').parent
-
-            ad_text = listing.find('span',
-                                   "x193iq5w xeuugli x13faqbe x1vvkbs x1xmvt09 x1lliihq x1s928wv xhkezso x1gmr53x x1cpjm7i x1fgarty x1943h6x xudqn12 x3x7a5m x6prxxf xvq8zen xo1l8bm xzsf02u x1yc453h").text
+            # post_url = listing.find_all('a', attrs={"attributionsrc": True, "role": "link"})
+            # As there are sometimes multiple URLs, we parse them to find the one corresponding to the group URL
+            matched_url = None
+            # for url in post_url:
+            #     if "posts" in url.get('href'):
+            #         matched_url = url.get('href')
+            
+            # print("https://www.facebook.com" + matched_url)
+            ad_text = listing.find('div', {"data-ad-rendering-role": "story_message"}).text
+            #print(ad_text)
 
             # After extracting the advertisement text, we check if it has already been treated by the script previously (determined from the hash of the ad)
             if is_sha256_in_file("adSums.txt", hashlib.sha256(ad_text.encode()).hexdigest()):
                 continue
-
-            append_sha256_to_file("adSums.txt",
-                                  ad_text)  # Append the hash of the advertisement so as not to treat it again
+            # Append the hash of the advertisement so as not to treat it again
+            append_sha256_to_file("adSums.txt", ad_text)  
 
             ad = {
                 'image': image,
                 'title': title,
                 'price': price,
-                'post_url': post_url,
+                # 'post_url': matched_url,
                 'ad_text': ad_text
             }
             parsed.append(ad)
@@ -105,7 +108,8 @@ def format_json(advertisement, json_sum):
               "color": 1048302,
               "image": {
                 "url": ""
-              }
+              },
+              "url": ""
             }
           ],
           "components": [],
@@ -134,6 +138,7 @@ def format_json(advertisement, json_sum):
         jsonMessage["embeds"][0]["title"] = advertisement["title"]
         jsonMessage["embeds"][0]["author"]["name"] = advertisement["price"]
         jsonMessage["embeds"][0]["image"]["url"] = advertisement["image"]
+        # jsonMessage["embeds"][0]["url"] = advertisement["post_url"]
 
     except:
         return "Error while treating an advertisement."
@@ -170,7 +175,7 @@ if __name__ == "__main__":
     # Initialize the session using Playwright.
     with sync_playwright() as p:
         # Open a new browser page.
-        browser = p.chromium.launch(headless=True, args=["--disable-notifications"])
+        browser = p.chromium.launch(headless=False, args=["--disable-notifications"])
         page = browser.new_page()
         # Navigate to the URL.
         page.goto(group_url)
@@ -200,7 +205,7 @@ if __name__ == "__main__":
             page.keyboard.press('End')
             time.sleep(2)
             page.evaluate(
-                "Array.from(document.getElementsByClassName('x1i10hfl xjbqb8w x1ejq31n xd10rxx x1sy0etr x17r0tee x972fbf xcfux6l x1qhh985 xm0m39n x9f619 x1ypdohk xt0psk2 xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r xexx8yu x4uap5 x18d9i69 xkhd6sd x16tdsg8 x1hl2dhg xggy1nq x1a2a7pz x1sur9pj xkrqix3 xzsf02u x1s688f')).filter(element => element.innerText === 'See more').forEach(elem => elem.click())")
+                "Array.from(document.getElementsByClassName('x1i10hfl xjbqb8w x1ejq31n xd10rxx x1sy0etr x17r0tee x972fbf xcfux6l x1qhh985 xm0m39n x9f619 x1ypdohk xt0psk2 xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r xexx8yu x4uap5 x18d9i69 xkhd6sd x16tdsg8 x1hl2dhg xggy1nq x1a2a7pz x1sur9pj xkrqix3 xzsf02u x1s688f')).filter(element => element.innerText === 'See more').forEach(elem => elem.click());")
             parsed_ads += get_ads()
 
         # Close the browser.
@@ -213,7 +218,7 @@ if __name__ == "__main__":
                 'price': item['price'],
                 'title': item['title'],
                 'ad_text': item['ad_text'],
-                'link': item['post_url'],
+                #'link': item['post_url'],
                 'image': item['image']
             })
 
@@ -232,7 +237,7 @@ if __name__ == "__main__":
                     - "nb_male": Current number of male residents (only if names are clearly provided)
                     - "nb_female": Current number of female residents (only if names are clearly provided)
                     - "apart_loc": Apartment location (only if specific address/area is mentioned)
-                    - "rent_date": Available date (Only if explicitly stated. If terms like 'immediately' or 'now' are used, show "now")
+                    - "rent_date": Available date (must be in YYYY-MM-DD format, only if explicitly stated. If terms like 'immediately' or 'now' are used, show "now")
 
                     IMPORTANT RULES:
                     1. Return ONLY the JSON object, no additional text
@@ -241,7 +246,10 @@ if __name__ == "__main__":
                     4. Do NOT attempt to guess or infer dates from context
                     5. For dates:
                     - Only parse explicit dates (e.g., "January 15th", "15/01/2025", "next month")
-                    - If the year is not specified, simply write the day and the month as such : "02 février"
+                    - Convert all dates to YYYY-MM-DD format
+                    - If "immediate" or "now" is mentioned, use 2025-01-17
+                    - If only a month is mentioned (e.g., "from March"), use the 1st of that month
+                    - Do NOT include the rent_date if the date is ambiguous
 
                     Example response:
                     {
@@ -253,11 +261,12 @@ if __name__ == "__main__":
                         "rent_date": "2025-02-01"
                     }
                     
+                    Lastly, if the advertisement says it's a "Girl only" shared appartment, please return an empty json as such : {}.
                     Give me ONLY the json result, do not add any extra comment.
                     """},
                     {
                         "role": "user",
-                        "content": f"Here is an apartment advertisement text you need to parse, according to the rules I gave to you. The title of the ad is {ad['title']} and the text is : {ad['ad_text']}"
+                        "content": f"Here is an apartment advertisement text you need to parse. The title of the ad is {ad['title']} and the text is : {ad['ad_text']}"
                     }
                 ]
             )
