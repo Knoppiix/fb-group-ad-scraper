@@ -215,6 +215,7 @@ if __name__ == "__main__":
         # if the selector isn't present, it probably means facebook wants us to log again (happens when you try to cookie-log from a new IP)
         except:
             print("Selector not found - facebook log-in attempt")
+            page.wait_for_selector("input[type='password']", timeout=3000)
             page.evaluate(f"document.querySelector(\"input[type='password']\").value='{user_password}';")
             page.keyboard.press('Enter')
 
