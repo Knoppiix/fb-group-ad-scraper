@@ -216,6 +216,7 @@ if __name__ == "__main__":
         except:
             print("Selector not found - facebook log-in attempt")
             page.wait_for_selector("input[type='password']", timeout=3000)
+            time.sleep(0.8)
             page.evaluate(f"document.querySelector(\"input[type='password']\").value='{user_password}';")
             page.keyboard.press('Enter')
 
