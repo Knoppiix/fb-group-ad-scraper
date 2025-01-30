@@ -51,8 +51,12 @@ def get_ads():
     listings = soup.find_all('div', {"aria-posinset": True, "aria-describedby": True})
     for listing in listings:
         try:
+            image=None
             # Get the item image.
-            image = listing.find('img').get('src')
+            imageLink = listing.find_all('a', {"aria-label": True})
+            for a in imageLink:
+                if "photo.php" in a.get('href'):
+                    image = a.find('img').get('src')
 
             # Get the item title from span.
             title = listing.select_one('a[role="link"][href="#"] span:last-of-type').text
@@ -175,7 +179,7 @@ if __name__ == "__main__":
     # Initialize the session using Playwright.
     with sync_playwright() as p:
         # Open a new browser page.
-        browser = p.chromium.launch(headless=False, args=["--disable-notifications"])
+        browser = p.chromium.launch(headless=True, args=["--disable-notifications"])
         page = browser.new_page()
         # Navigate to the URL.
         page.goto(group_url)
@@ -185,7 +189,7 @@ if __name__ == "__main__":
         # We set the session cookie "xs" to allow the browser to access the facebook group
         try:
             page.evaluate(f"""
-            document.querySelector("body > div.__fb-light-mode.x1n2onr6.x1vjfegm > div.x9f619.x1n2onr6.x1ja2u2z > div > div.x1uvtmcs.x4k7w5x.x1h91t0o.x1beo9mf.xaigb6o.x12ejxvf.x3igimt.xarpa2k.xedcshv.x1lytzrv.x1t2pt76.x7ja8zs.x1n2onr6.x1qrby5j.x1jfb8zj > div > div > div > div > div.x1exxf4d.x13fuv20.x178xt8z.x1l90r2v.x1pi30zi.x1swvt13 > div > div:nth-child(2) > div.x1i10hfl.xjbqb8w.x1ejq31n.xd10rxx.x1sy0etr.x17r0tee.x972fbf.xcfux6l.x1qhh985.xm0m39n.x1ypdohk.xe8uvvx.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.xexx8yu.x4uap5.x18d9i69.xkhd6sd.x16tdsg8.x1hl2dhg.xggy1nq.x1o1ewxj.x3x9cwd.x1e5q0jg.x13rtm0m.x87ps6o.x1lku1pv.x1a2a7pz.x9f619.x3nfvp2.xdt5ytf.xl56j7k.x1n2onr6.xh8yej3").click()
+            console.log("tst")       
             document.cookie = `xs={session_cookie}; path=/; secure;`
             document.cookie = `c_user={c_user_cookie}; path=/; secure;`
             location.reload()        
