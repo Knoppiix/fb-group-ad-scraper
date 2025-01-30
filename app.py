@@ -11,7 +11,7 @@ import hashlib
 import json
 import requests
 import configparser
-
+import os
 
 global ad_extracted_carac
 # Dictionnary that will contain the data I want to extract from the ads
@@ -19,8 +19,16 @@ ad_extracted_carac = {"nb_room": 0, "bedrooms_to_rent": 0, "nb_male": "undefined
                       "rent_date": "undefined", "apart_loc": "undefined"}
 
 
+
+
+def ensure_file_exists(filename="adSums.txt"):
+    """Check if the file exists, and create it if it doesn't."""
+    if not os.path.exists(filename):
+        with open(filename, "w") as f:
+            pass  # Creates an empty file
+
 def append_sha256_to_file(file_path, input_string):
-    # Compute the SHA256 hash of the string
+    """Compute the SHA256 hash of the string"""
     sha256_hash = hashlib.sha256(input_string.encode()).hexdigest()
 
     # Open the file in append mode (creates the file if it doesn't exist)
@@ -28,7 +36,8 @@ def append_sha256_to_file(file_path, input_string):
         file.write(f"{sha256_hash}\n")
 
 
-def is_sha256_in_file(file_path, sha256_hash):  # Check if the given SHA256 hash exists in the file.
+def is_sha256_in_file(file_path, sha256_hash):  
+    """Check if the given SHA256 hash exists in the file."""
     with open(file_path, 'r') as file:
         for line in file:
             if sha256_hash in line:
@@ -36,8 +45,8 @@ def is_sha256_in_file(file_path, sha256_hash):  # Check if the given SHA256 hash
     return False
 
 
-# Map the extracted data from the advertisement by the LLM to the ad_extracter_carac dict
 def data_to_extract(json):
+    """Map the extracted data from the advertisement by the LLM to the ad_extracter_carac dict"""
     global ad_extracted_carac
     for key in ad_extracted_carac:
         if key in json:
