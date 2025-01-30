@@ -52,6 +52,9 @@ def data_to_extract(json):
         if key in json:
             ad_extracted_carac[key] = json[key]
 
+def input_password():
+    pass
+
 def get_ads():
     html = page.content()
     soup = BeautifulSoup(html, 'html.parser')
@@ -68,11 +71,10 @@ def get_ads():
                     image = a.find('img').get('src')
 
             # Get the item title from span.
-            title = listing.select_one('a[role="link"][href="#"] span:last-of-type').text
-            print("title: ", title)
+            price = listing.select_one('a[role="link"][href="#"] span:last-of-type').text
             # Get the item price.
-            price = listing.select_one('a[role="link"][href="#"] div > div > div:last-of-type').text
-            print("price: ", price)
+            title = listing.select_one('a[role="link"][href="#"] div > div > div:last-of-type').text
+
             # Get the item URL.
             # post_url = listing.find_all('a', attrs={"attributionsrc": True, "role": "link"})
             # As there are sometimes multiple URLs, we parse them to find the one corresponding to the group URL
@@ -90,7 +92,7 @@ def get_ads():
                 continue
             # Append the hash of the advertisement so as not to treat it again
             append_sha256_to_file("adSums.txt", ad_text)  
-
+            print(f"[New ad found]\nTitle\t\t\t\tPrice\n{title}\t{price}")
             ad = {
                 'image': image,
                 'title': title,
@@ -137,7 +139,7 @@ def format_json(advertisement, json_sum):
 
         # Populate the dictionnary with the data extracted from the ad by AI
         data_to_extract(json_sum)
-        print(ad_extracted_carac)
+
         if ad_extracted_carac["bedrooms_to_rent"] < 2:
             return
 
@@ -170,6 +172,7 @@ if __name__ == "__main__":
         webhook_url = config['DEFAULT']['WEBHOOK_URL']
         session_cookie = config['DEFAULT']['FACEBOOK_XS_COOKIE']
         c_user_cookie = config['DEFAULT']['FACEBOOK_CUSER_COOKIE']
+        user_password = config['DEFAULT']['USER_PASSWORD']
     except FileNotFoundError as e:
         config['DEFAULT'] = {'OPENAI_API_KEY': '', 'GROUP_URL': '', 'WEBHOOK_URL': '', 'FACEBOOK_XS_COOKIE': '', 'FACEBOOK_CUSER_COOKIE': ''}
         config.write(open('parameters.ini', 'w'))
@@ -207,7 +210,14 @@ if __name__ == "__main__":
             print("An error has occured: the session cookie might have expired.")
 
         # Wait for the page to load.
-        page.wait_for_selector("div.x1yztbdb.x1n2onr6.xh8yej3.x1ja2u2z")
+        try:
+            page.wait_for_selector("div.x1yztbdb.x1n2onr6.xh8yej3.x1ja2u2z", timeout=3000)
+        # if the selector isn't present, it probably means facebook wants us to log again (happens when you try to cookie-log from a new IP)
+        except:
+            print("Selector not found - facebook log-in attempt")
+            page.evaluate(f"document.querySelector(\"input[type='password']\").value='{user_password}';")
+            page.keyboard.press('Enter')
+
         # Expand all the posts (click on "en voir plus" button)
         page.evaluate(
             "Array.from(document.getElementsByClassName('x1i10hfl xjbqb8w x1ejq31n xd10rxx x1sy0etr x17r0tee x972fbf xcfux6l x1qhh985 xm0m39n x9f619 x1ypdohk xt0psk2 xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r xexx8yu x4uap5 x18d9i69 xkhd6sd x16tdsg8 x1hl2dhg xggy1nq x1a2a7pz x1sur9pj xkrqix3 xzsf02u x1s688f')).filter(element => element.innerText === 'En voir plus').forEach(elem => elem.click())")
