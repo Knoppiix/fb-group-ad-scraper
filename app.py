@@ -191,7 +191,7 @@ if __name__ == "__main__":
     # Initialize the session using Playwright.
     with sync_playwright() as p:
         # Open a new browser page.
-        browser = p.chromium.launch(headless=True, args=["--disable-notifications"])
+        browser = p.chromium.launch(headless=False, args=["--disable-notifications"])
         page = browser.new_page()
         # Navigate to the URL.
         page.goto(group_url)
@@ -215,10 +215,16 @@ if __name__ == "__main__":
         # if the selector isn't present, it probably means facebook wants us to log again (happens when you try to cookie-log from a new IP)
         except:
             print("Selector not found - facebook log-in attempt")
-            page.wait_for_selector("input[type='password']", timeout=3000)
+            passwordInput = page.wait_for_selector("input[type='password']", timeout=3000)
             time.sleep(0.8)
-            page.evaluate(f"document.querySelector(\"input[type='password']\").value='{user_password}';")
+            passwordInput.fill(user_password)
             page.keyboard.press('Enter')
+        else:
+            # Get the new xs session cookie, and erase the old one
+            session_cookie = page.evaluate("document.cookie.split('; ').find(row => row.startsWith('xs=')).split('=')[1];")
+            print(f"Session cookie updated to {session_cookie}")
+            config['DEFAULT']['FACEBOOK_XS_COOKIE'] = session_cookie
+            config.write(open('parameters.ini', 'w'))
 
         # Expand all the posts (click on "en voir plus" button)
         page.evaluate(
