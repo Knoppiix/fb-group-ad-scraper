@@ -219,12 +219,12 @@ if __name__ == "__main__":
             time.sleep(0.8)
             passwordInput.fill(user_password)
             page.keyboard.press('Enter')
-        else:
             # Get the new xs session cookie, and erase the old one
             session_cookie = page.evaluate("document.cookie.split('; ').find(row => row.startsWith('xs=')).split('=')[1];")
             print(f"Session cookie updated to {session_cookie}")
             config['DEFAULT']['FACEBOOK_XS_COOKIE'] = session_cookie
             config.write(open('parameters.ini', 'w'))
+
 
         # Expand all the posts (click on "en voir plus" button)
         page.evaluate(
